@@ -107,17 +107,3 @@ threat-hunt/
 ├── reports/                    # generated timeline.html lands here
 └── requirements.txt
 ```
-
-## Resume framing (once you've actually done step 5 above)
-
-> **Windows Event Log Threat Hunt — Credential Dumping Investigation**
-> Technologies: Python, Sysmon, MITRE ATT&CK, Mordor/Security-Datasets
-> - Investigated a real multi-stage attack (encoded PowerShell launcher →
->   defense evasion → discovery → LSASS credential access) using a public
->   Windows event log dataset.
-> - Built custom Python detectors to identify obfuscated PowerShell
->   execution, suspicious reconnaissance commands, and anomalous LSASS
->   process access based on Sysmon telemetry.
-> - Produced a full incident report mapping each attack stage to MITRE
->   ATT&CK (T1059.001, T1027, T1033, T1003.001) with IOCs and remediation
->   recommendations.
