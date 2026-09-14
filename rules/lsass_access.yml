@@ -1,0 +1,44 @@
+title: Suspicious LSASS Process Access
+id: 8a4c1e50-6c3f-4b2f-9a12-example0001
+status: experimental
+description: >
+  Detects processes accessing lsass.exe with an access rights bitmask
+  commonly associated with credential dumping tools (e.g. Mimikatz),
+  or from a source process not normally expected to touch lsass.exe.
+references:
+  - https://github.com/OTRF/Security-Datasets/tree/master/datasets/atomic/windows/credential_access
+author: '[Your Name] - built while investigating the empire_mimikatz_logonpasswords Mordor dataset'
+date: 2026/09/14
+logsource:
+  category: process_access
+  product: windows
+detection:
+  selection:
+    EventID: 10
+    TargetImage|endswith: '\lsass.exe'
+  bad_mask:
+    GrantedAccess:
+      - '0x1010'
+      - '0x1038'
+      - '0x1400'
+      - '0x1410'
+      - '0x1418'
+      - '0x143a'
+      - '0x1438'
+      - '0x1fffff'
+  filter_trusted_sources:
+    SourceImage|endswith:
+      - '\svchost.exe'
+      - '\wininit.exe'
+      - '\services.exe'
+      - '\csrss.exe'
+      - '\wmiprvse.exe'
+      - '\MsMpEng.exe'
+  condition: selection and (bad_mask or not filter_trusted_sources)
+falsepositives:
+  - Some legitimate security/monitoring tools also request elevated access to lsass.exe.
+    Tune the trusted-source allowlist for your environment.
+level: high
+tags:
+  - attack.credential_access
+  - attack.t1003.001

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Threat Hunt Timeline — {{ dataset_name }}</title>
+<style>
+  :root { --navy:#1f3864; --high:#c0392b; --medium:#d68910; --info:#2874a6; --border:#dfe3e8; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background:#f4f6f9; margin:0; color:#222; }
+  header { background: var(--navy); color:white; padding: 22px 32px; }
+  header h1 { margin:0; font-size:22px; }
+  header p { margin:4px 0 0; font-size:13px; color:#cdd8ea; }
+  .container { max-width: 1040px; margin: 0 auto; padding: 26px 20px 60px; }
+  .card { background:white; border:1px solid var(--border); border-radius:8px; padding:20px 24px; margin-bottom:22px; }
+  .card h2 { margin-top:0; font-size:16px; color:var(--navy); border-bottom:1px solid var(--border); padding-bottom:8px; }
+  table { width:100%; border-collapse: collapse; font-size:13px; }
+  th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--border); vertical-align: top; }
+  th { color:#666; font-weight:600; font-size:11.5px; text-transform:uppercase; }
+  .badge { display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:600; color:white; }
+  .badge.high { background: var(--high); }
+  .badge.medium { background: var(--medium); }
+  .badge.info { background: var(--info); }
+  .mono { font-family: "SF Mono", Consolas, monospace; font-size:12px; background:#f7f7f9; padding:2px 5px; border-radius:4px; word-break: break-all; }
+  .muted { color:#888; font-size:12.5px; }
+  .stage-num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--navy); color:white; font-size:12px; font-weight:700; margin-right:8px; }
+  .decoded-box { background:#fdf6ec; border:1px solid #f0d98c; border-radius:6px; padding:10px 12px; font-size:12px; font-family: monospace; white-space: pre-wrap; word-break: break-word; margin-top:6px; max-height: 160px; overflow-y:auto; }
+  .fill-in { background:#fffce8; border:1px dashed #d4c25e; border-radius:6px; padding:14px 16px; font-size:13.5px; color:#6b5f16; }
+  .summary-strip { display:flex; gap:14px; margin-bottom: 6px; }
+  .summary-box { flex:1; text-align:center; padding:14px 8px; border-radius:8px; color:white; }
+  .summary-box .num { font-size:26px; font-weight:700; display:block; }
+  .summary-box .label { font-size:12px; opacity:0.9; }
+  .summary-box.a { background: var(--high); }
+  .summary-box.b { background: var(--medium); }
+  .summary-box.c { background: var(--info); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Threat Hunt Timeline</h1>
+  <p>Dataset: {{ dataset_name }} &middot; {{ total_events }} total events parsed &middot; {{ flagged_count }} flagged findings</p>
+</header>
+
+<div class="container">
+
+  <div class="card">
+    <h2>Summary</h2>
+    <div class="summary-strip">
+      <div class="summary-box a"><span class="num">{{ encoded_ps|length }}</span><span class="label">Encoded PowerShell launches</span></div>
+      <div class="summary-box b"><span class="num">{{ recon|length }}</span><span class="label">Recon commands</span></div>
+      <div class="summary-box c"><span class="num">{{ lsass_flagged|length }}</span><span class="label">Flagged LSASS accesses</span></div>
+    </div>
+    <p class="muted">This report only surfaces what the detectors found. Severity, root cause, and the
+    write-up below are for <b>you</b> to determine after reviewing the evidence — that's the actual
+    threat-hunting work.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="stage-num">1</span>Encoded PowerShell Execution</h2>
+    {% if encoded_ps %}
+      {% for f in encoded_ps %}
+      <table style="margin-bottom:14px;">
+        <tr><th style="width:140px;">Time (UTC)</th><td>{{ f.utc_time }}</td></tr>
+        <tr><th>Host / User</th><td>{{ f.hostname }} / {{ f.user }}</td></tr>
+        <tr><th>Technique</th><td>{{ f.technique }}</td></tr>
+        <tr><th>Raw command</th><td class="mono">{{ f.raw_commandline }}</td></tr>
+        <tr><th>Suspicious markers found in decoded payload</th>
+          <td>
+            {% if f.suspicious_markers %}
+              {% for m in f.suspicious_markers %}<span class="badge high">{{ m }}</span> {% endfor %}
+            {% else %}<span class="muted">none matched</span>{% endif %}
+          </td>
+        </tr>
+      </table>
+      {% if f.decoded_snippet %}
+      <div class="decoded-box">{{ f.decoded_snippet }}</div>
+      {% endif %}
+      {% endfor %}
+    {% else %}
+      <p class="muted">No encoded PowerShell command lines found in this dataset.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2><span class="stage-num">2</span>Reconnaissance Commands</h2>
+    {% if recon %}
+      <table>
+        <tr><th>Time (UTC)</th><th>Host / User</th><th>Command</th><th>Parent</th></tr>
+        {% for f in recon %}
+        <tr>
+          <td>{{ f.utc_time }}</td>
+          <td>{{ f.hostname }} / {{ f.user }}</td>
+          <td class="mono">{{ f.child_cmdline }}</td>
+          <td class="mono">{{ f.parent_image }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <p class="muted">No suspicious recon commands found.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2><span class="stage-num">3</span>LSASS Process Access</h2>
+    <table>
+      <tr><th>Time (UTC)</th><th>Source Process</th><th>Granted Access</th><th>Flag</th><th>Reasons</th></tr>
+      {% for f in lsass_all %}
+      <tr>
+        <td>{{ f.utc_time }}</td>
+        <td class="mono">{{ f.source_image }} (PID {{ f.source_pid }})</td>
+        <td class="mono">{{ f.granted_access }}</td>
+        <td>{% if f.flagged %}<span class="badge high">Flagged</span>{% else %}<span class="badge info">Routine</span>{% endif %}</td>
+        <td class="muted">{{ f.reasons|join('; ') if f.reasons else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Your Incident Report</h2>
+    <div class="fill-in">
+      The detectors above give you the raw evidence. Now do the actual analyst work:
+      correlate the three stages into a single narrative, determine the affected host/user,
+      map each stage to MITRE ATT&amp;CK, and write your findings using
+      <span class="mono">report_template.md</span> in this project folder.
+      Don't skip this part — this is the piece that's actually defensible in an interview.
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
